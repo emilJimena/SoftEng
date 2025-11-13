@@ -360,18 +360,20 @@ pw.Row(
                   // Table of items
                   pw.Table.fromTextArray(
                     headers: ["Menu Item", "Category", "Qty", "Size", "Price", "Add-ons"],
-                    data: items.map((item) {
-                      final addons = (item['addons'] as List<dynamic>?)?.join(", ") ?? '';
-                      final itemPrice = double.tryParse(item['price']?.toString() ?? '0') ?? 0.0;
-                      return [
-                        item['menuItem'] ?? '',
-                        item['category'] ?? '',
-                        item['quantity']?.toString() ?? '1',
-                        item['size'] ?? '',
-                        "₱${numberFormat.format(itemPrice)}", // peso symbol with commas
-                        addons,
-                      ];
-                    }).toList(),
+data: items.map((item) {
+  final addons = (item['addons'] as List<dynamic>?)?.join(", ") ?? '';
+  final itemPrice = double.tryParse(item['price']?.toString() ?? '0') ?? 0.0;
+
+  return [
+    item['menuItem'] ?? '',
+    item['category'] ?? '',
+    item['quantity']?.toString() ?? '1',
+    item['size'] ?? '',
+    "₱${numberFormat.format(itemPrice)}", // ✅ peso symbol with commas
+    addons,
+  ];
+}).toList(),
+
                     headerStyle: pw.TextStyle(font: robotoBoldFont, fontSize: 11),
                     cellStyle: pw.TextStyle(font: robotoFont, fontSize: 10),
                     headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
@@ -715,7 +717,7 @@ pw.Row(
                           ),
                         ),
                         Text(
-                          "₱${_calculateTotalSales(filteredOrders).toStringAsFixed(2)}",
+                          "₱${NumberFormat("#,##0.00").format(_calculateTotalSales(filteredOrders))}",
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -801,7 +803,7 @@ pw.Row(
                                                       CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      "${order['orderName']} - ₱${orderTotal.toStringAsFixed(2)}",
+                                                      "${order['orderName']} - ₱${NumberFormat("#,##0.00").format(orderTotal)}",
                                                       style:
                                                           GoogleFonts.poppins(
                                                             fontSize: 16,
@@ -844,29 +846,22 @@ pw.Row(
                                                       ),
 
                                                     const SizedBox(height: 8),
-                                                    ...items.map((item) {
-                                                      final addons =
-                                                          (item['addons']
-                                                                  as List<
-                                                                    dynamic
-                                                                  >?)
-                                                              ?.join(", ") ??
-                                                          '';
-                                                      return Padding(
-                                                        padding:
-                                                            const EdgeInsets.only(
-                                                              bottom: 4,
-                                                            ),
-                                                        child: Text(
-                                                          "• ${item['menuItem']} (${item['category']}) - Qty: ${item['quantity']}, "
-                                                          "Size: ${item['size']}, ₱${item['price']} ${addons.isNotEmpty ? '($addons)' : ''}",
-                                                          style:
-                                                              GoogleFonts.poppins(
-                                                                fontSize: 13,
-                                                              ),
-                                                        ),
-                                                      );
-                                                    }),
+...items.map((item) {
+  final addons = (item['addons'] as List<dynamic>?)?.join(", ") ?? '';
+  final itemPrice = double.tryParse(item['price']?.toString() ?? '0') ?? 0.0;
+
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Text(
+      "• ${item['menuItem']} (${item['category']}) - Qty: ${item['quantity']}, "
+      "Size: ${item['size']}, ₱${NumberFormat('#,##0.00').format(itemPrice)} "
+      "${addons.isNotEmpty ? '($addons)' : ''}",
+      style: GoogleFonts.poppins(
+        fontSize: 13,
+      ),
+    ),
+  );
+}),
                                                   ],
                                                 ),
                                               );
