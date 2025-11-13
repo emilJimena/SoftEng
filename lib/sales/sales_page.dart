@@ -203,9 +203,7 @@ Future<void> _printSalesReport() async {
 
   final notoData = await rootBundle.load("assets/fonts/NotoSans-Regular.ttf");
   final notoFont = pw.Font.ttf(notoData);
-  final notoBoldData = await rootBundle.load("assets/fonts/NotoSans-Bold.ttf");
-  final notoBoldFont = pw.Font.ttf(notoBoldData);
-
+    
   final filteredOrders = (startDate != null || endDate != null)
       ? _allOrders.where((order) {
           DateTime? orderDate;
