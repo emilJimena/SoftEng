@@ -295,18 +295,17 @@ pw.Row(
   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
   children: [
     pw.Text(
-      // Show only if at least one date is set
       (startDate != null || endDate != null)
           ? "Date Range: "
             "${startDate != null ? dateFormat.format(startDate!) : ''}"
             "${(startDate != null && endDate != null) ? ' - ' : ''}"
             "${endDate != null ? dateFormat.format(endDate!) : ''}"
-          : "", // prints nothing if no dates
+          : "",
       style: pw.TextStyle(font: robotoFont, fontSize: 12),
     ),
-    pesoText(grandTotal, bold: true),
   ],
 ),
+
 
           pw.SizedBox(height: 10),
           ...filteredOrders.map((order) {
@@ -397,10 +396,17 @@ data: items.map((item) {
             );
           }),
           pw.Divider(thickness: 1),
-          pw.Align(
-            alignment: pw.Alignment.centerRight,
-            child: pesoText(grandTotal, bold: true),
-          ),
+pw.Row(
+  mainAxisAlignment: pw.MainAxisAlignment.end,
+  children: [
+    pw.Text(
+      "Total: ",
+      style: pw.TextStyle(font: robotoBoldFont, fontSize: 13),
+    ),
+    pw.SizedBox(width: 4),
+    pesoText(grandTotal, bold: true),
+  ],
+),
         ];
       },
     ),
