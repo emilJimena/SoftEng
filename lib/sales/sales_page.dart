@@ -58,12 +58,20 @@ class _SalesContentState extends State<SalesContent> {
     widget.toggleSidebar();
   }
 
-  Future<void> _loadSales() async {
-    setState(() => isLoading = true);
-    await SalesData().init();
-    await _fetchAndMapOrders();
-    setState(() => isLoading = false);
+Future<void> _loadSales() async {
+  setState(() => isLoading = true);
+  await SalesData().init();
+  await _fetchAndMapOrders();
+  setState(() => isLoading = false);
+
+  // Auto-print after loading sales
+  if (_allOrders.isNotEmpty) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _printSalesReport();
+    });
   }
+}
+
 
   Future<void> _fetchAndMapOrders() async {
     await SalesData().loadOrders();
@@ -398,8 +406,10 @@ data: items.map((item) {
     ),
   );
 
-  await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save());
+   await Printing.sharePdf(
+    bytes: await pdf.save(),
+    filename: 'Sales Report.pdf',
+  );
 }
 
   @override
