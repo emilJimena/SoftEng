@@ -190,218 +190,210 @@ class _SalesContentState extends State<SalesContent> {
     );
   }
 
-  Future<void> _printSalesReport() async {
-    final pdf = pw.Document();
-    final dateFormat = DateFormat('MMM dd, yyyy');
+Future<void> _printSalesReport() async {
+  final pdf = pw.Document();
+  final dateFormat = DateFormat('MMM dd, yyyy');
+  final numberFormat = NumberFormat("#,##0.00"); // format with commas
 
-    // Load Roboto font from assets
-    final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
-    final robotoFont = pw.Font.ttf(fontData);
+  // Load fonts
+  final robotoData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
+  final robotoFont = pw.Font.ttf(robotoData);
+  final robotoBoldData = await rootBundle.load("assets/fonts/Roboto-Bold.ttf");
+  final robotoBoldFont = pw.Font.ttf(robotoBoldData);
 
-    final filteredOrders = (startDate != null || endDate != null)
-        ? _allOrders.where((order) {
-            DateTime? orderDate;
-            try {
-              orderDate = dateFormat.parse(order['orderDate']);
-            } catch (_) {
-              orderDate = null;
-            }
-            if (orderDate == null) return false;
-            if (startDate != null && orderDate.isBefore(startDate!))
-              return false;
-            if (endDate != null && orderDate.isAfter(endDate!)) return false;
-            return true;
-          }).toList()
-        : List<Map<String, dynamic>>.from(SalesData().orders);
+  final notoData = await rootBundle.load("assets/fonts/NotoSans-Regular.ttf");
+  final notoFont = pw.Font.ttf(notoData);
+  final notoBoldData = await rootBundle.load("assets/fonts/NotoSans-Bold.ttf");
+  final notoBoldFont = pw.Font.ttf(notoBoldData);
 
-    if (filteredOrders.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("No sales to print for the selected date."),
-        ),
-      );
-      return;
-    }
+  final filteredOrders = (startDate != null || endDate != null)
+      ? _allOrders.where((order) {
+          DateTime? orderDate;
+          try {
+            orderDate = dateFormat.parse(order['orderDate']);
+          } catch (_) {
+            orderDate = null;
+          }
+          if (orderDate == null) return false;
+          if (startDate != null && orderDate.isBefore(startDate!)) return false;
+          if (endDate != null && orderDate.isAfter(endDate!)) return false;
+          return true;
+        }).toList()
+      : List<Map<String, dynamic>>.from(SalesData().orders);
 
-    final grandTotal = _calculateTotalSales(filteredOrders);
-
-    pdf.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        build: (pw.Context context) {
-          return [
-            pw.Center(
-              child: pw.Column(
-                children: [
-                  pw.Text(
-                    "Sales Report",
-                    style: pw.TextStyle(
-                      font: robotoFont, // <-- Use Roboto here
-                      fontSize: 22,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Text(
-                    "Generated on: ${dateFormat.format(DateTime.now())}",
-                    style: pw.TextStyle(
-                      font: robotoFont, // <-- And here
-                      fontSize: 11,
-                      color: PdfColors.grey700,
-                    ),
-                  ),
-                  pw.SizedBox(height: 10),
-                  pw.Divider(thickness: 1),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  "Date Range: "
-                  "${startDate != null ? dateFormat.format(startDate!) : 'All'} - "
-                  "${endDate != null ? dateFormat.format(endDate!) : 'All'}",
-                  style: pw.TextStyle(font: robotoFont, fontSize: 12),
-                ),
-                pw.Text(
-                  "Total Sales: ₱${grandTotal.toStringAsFixed(2)}",
-                  style: pw.TextStyle(
-                    font: robotoFont,
-                    fontSize: 12,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 10),
-            ...filteredOrders.map((order) {
-              final items = order['items'] as List<dynamic>? ?? [];
-              final orderTotal = _calculateOrderTotal(order);
-
-              return pw.Container(
-                margin: const pw.EdgeInsets.only(bottom: 16),
-                padding: const pw.EdgeInsets.all(10),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(4),
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          order['orderName'] ?? "Order",
-                          style: pw.TextStyle(
-                            font: robotoFont,
-                            fontSize: 13,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.Text(
-                          "₱${orderTotal.toStringAsFixed(2)}",
-                          style: pw.TextStyle(
-                            font: robotoFont,
-                            fontSize: 13,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    pw.SizedBox(height: 2),
-                    pw.Text(
-                      "Date: ${order['orderDate']} | Time: ${order['orderTime']} | Payment: ${order['purchaseMethod']} | Paid: ₱${order['amountPaid'] ?? '0.00'} | Change: ₱${order['change'] ?? '0.00'}",
-                      style: pw.TextStyle(
-                        font: robotoFont,
-                        fontSize: 11,
-                        color: PdfColors.grey700,
-                      ),
-                    ),
-
-                    if ((order['voucher'] ?? '').toString().isNotEmpty)
-                      pw.Text(
-                        "Voucher: ${order['voucher']}",
-                        style: pw.TextStyle(
-                          font: robotoFont,
-                          fontSize: 11,
-                          color: PdfColors.green700,
-                        ),
-                      ),
-
-                    pw.SizedBox(height: 6),
-                    pw.Table.fromTextArray(
-                      headers: [
-                        "Menu Item",
-                        "Category",
-                        "Qty",
-                        "Size",
-                        "Price",
-                        "Add-ons",
-                      ],
-                      data: items.map((item) {
-                        final addons =
-                            (item['addons'] as List<dynamic>?)?.join(", ") ??
-                            '';
-                        return [
-                          item['menuItem'] ?? '',
-                          item['category'] ?? '',
-                          item['quantity']?.toString() ?? '1',
-                          item['size'] ?? '',
-                          "₱${item['price']?.toString() ?? '0.00'}",
-                          addons,
-                        ];
-                      }).toList(),
-                      headerStyle: pw.TextStyle(
-                        font: robotoFont,
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                      cellStyle: pw.TextStyle(font: robotoFont, fontSize: 10),
-                      headerDecoration: pw.BoxDecoration(
-                        color: PdfColors.grey300,
-                      ),
-                      cellAlignment: pw.Alignment.centerLeft,
-                      headerAlignment: pw.Alignment.centerLeft,
-                      border: pw.TableBorder.symmetric(
-                        inside: pw.BorderSide(
-                          color: PdfColors.grey400,
-                          width: 0.3,
-                        ),
-                        outside: pw.BorderSide(
-                          color: PdfColors.grey500,
-                          width: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            pw.Divider(thickness: 1),
-            pw.Align(
-              alignment: pw.Alignment.centerRight,
-              child: pw.Text(
-                "Grand Total: ₱${grandTotal.toStringAsFixed(2)}",
-                style: pw.TextStyle(
-                  font: robotoFont,
-                  fontSize: 13,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-            ),
-          ];
-        },
+  if (filteredOrders.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("No sales to print for the selected date."),
       ),
     );
+    return;
+  }
 
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
+  final grandTotal = _calculateTotalSales(filteredOrders);
+
+  // Helper for peso amounts
+  pw.Widget pesoText(double amount, {bool bold = false}) {
+    final formattedAmount = numberFormat.format(amount);
+    return pw.RichText(
+      text: pw.TextSpan(
+        children: [
+          pw.TextSpan(
+            text: "₱",
+            style: pw.TextStyle(
+                font: notoFont,
+                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+          ),
+          pw.TextSpan(
+            text: formattedAmount,
+            style: pw.TextStyle(
+                font: robotoFont,
+                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+          ),
+        ],
+      ),
     );
   }
+
+  pdf.addPage(
+    pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(32),
+      build: (pw.Context context) {
+        return [
+          pw.Center(
+            child: pw.Column(
+              children: [
+                pw.Text(
+                  "Sales Report",
+                  style: pw.TextStyle(font: robotoBoldFont, fontSize: 22),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  "Generated on: ${dateFormat.format(DateTime.now())}",
+                  style: pw.TextStyle(
+                    font: robotoFont,
+                    fontSize: 11,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Divider(thickness: 1),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 10),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                "Date Range: "
+                "${startDate != null ? dateFormat.format(startDate!) : 'All'} - "
+                "${endDate != null ? dateFormat.format(endDate!) : 'All'}",
+                style: pw.TextStyle(font: robotoFont, fontSize: 12),
+              ),
+              pesoText(grandTotal, bold: true),
+            ],
+          ),
+          pw.SizedBox(height: 10),
+          ...filteredOrders.map((order) {
+            final items = order['items'] as List<dynamic>? ?? [];
+            final orderTotal = _calculateOrderTotal(order);
+
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 16),
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Order header
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        order['orderName'] ?? "Order",
+                        style: pw.TextStyle(font: robotoBoldFont, fontSize: 13),
+                      ),
+                      pesoText(double.tryParse(orderTotal.toString()) ?? 0.0, bold: true),
+                    ],
+                  ),
+                  pw.SizedBox(height: 2),
+                  // Order info
+                  pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Text(
+                          "Date: ${order['orderDate']} | Time: ${order['orderTime']} | Payment: ${order['purchaseMethod']}",
+                          style: pw.TextStyle(
+                              font: robotoFont,
+                              fontSize: 11,
+                              color: PdfColors.grey700),
+                        ),
+                      ),
+                      pesoText(double.tryParse(order['amountPaid']?.toString() ?? '0') ?? 0.0),
+                      pw.SizedBox(width: 6),
+                      pw.Text(
+                        "Change: ",
+                        style: pw.TextStyle(font: robotoFont, fontSize: 11),
+                      ),
+                      pesoText(double.tryParse(order['change']?.toString() ?? '0') ?? 0.0),
+                    ],
+                  ),
+                  if ((order['voucher'] ?? '').toString().isNotEmpty)
+                    pw.Text(
+                      "Voucher: ${order['voucher']}",
+                      style: pw.TextStyle(
+                          font: robotoFont,
+                          fontSize: 11,
+                          color: PdfColors.green700),
+                    ),
+                  pw.SizedBox(height: 6),
+                  // Table of items
+                  pw.Table.fromTextArray(
+                    headers: ["Menu Item", "Category", "Qty", "Size", "Price", "Add-ons"],
+                    data: items.map((item) {
+                      final addons = (item['addons'] as List<dynamic>?)?.join(", ") ?? '';
+                      final itemPrice = double.tryParse(item['price']?.toString() ?? '0') ?? 0.0;
+                      return [
+                        item['menuItem'] ?? '',
+                        item['category'] ?? '',
+                        item['quantity']?.toString() ?? '1',
+                        item['size'] ?? '',
+                        "₱${numberFormat.format(itemPrice)}", // price with peso symbol
+                        addons,
+                      ];
+                    }).toList(),
+                    headerStyle: pw.TextStyle(font: robotoBoldFont, fontSize: 11),
+                    cellStyle: pw.TextStyle(font: robotoFont, fontSize: 10),
+                    headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+                    cellAlignment: pw.Alignment.centerLeft,
+                    headerAlignment: pw.Alignment.centerLeft,
+                    border: pw.TableBorder.symmetric(
+                      inside: pw.BorderSide(color: PdfColors.grey400, width: 0.3),
+                      outside: pw.BorderSide(color: PdfColors.grey500, width: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          pw.Divider(thickness: 1),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pesoText(grandTotal, bold: true),
+          ),
+        ];
+      },
+    ),
+  );
+
+  await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save());
+}
 
   @override
   Widget build(BuildContext context) {
