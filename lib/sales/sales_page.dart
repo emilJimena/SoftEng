@@ -193,17 +193,19 @@ class _SalesContentState extends State<SalesContent> {
 Future<void> _printSalesReport() async {
   final pdf = pw.Document();
   final dateFormat = DateFormat('MMM dd, yyyy');
-  final numberFormat = NumberFormat("#,##0.00"); // format with commas
+  final numberFormat = NumberFormat("#,##0.00"); // comma formatting
 
-  // Load fonts
+  // Load fonts from correct assets folder
   final robotoData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
   final robotoFont = pw.Font.ttf(robotoData);
   final robotoBoldData = await rootBundle.load("assets/fonts/Roboto-Bold.ttf");
   final robotoBoldFont = pw.Font.ttf(robotoBoldData);
 
-  final notoData = await rootBundle.load("assets/fonts/NotoSans-Regular.ttf");
-  final notoFont = pw.Font.ttf(notoData);
-    
+  final dejavuData = await rootBundle.load("assets/fonts/DejaVuSans.ttf");
+  final dejavuFont = pw.Font.ttf(dejavuData);
+  final dejavuBoldData = await rootBundle.load("assets/fonts/DejaVuSans-Bold.ttf");
+  final dejavuBoldFont = pw.Font.ttf(dejavuBoldData);
+
   final filteredOrders = (startDate != null || endDate != null)
       ? _allOrders.where((order) {
           DateTime? orderDate;
@@ -230,7 +232,7 @@ Future<void> _printSalesReport() async {
 
   final grandTotal = _calculateTotalSales(filteredOrders);
 
-  // Helper for peso amounts
+  // Helper for peso amounts using DejaVu for ₱
   pw.Widget pesoText(double amount, {bool bold = false}) {
     final formattedAmount = numberFormat.format(amount);
     return pw.RichText(
@@ -239,14 +241,14 @@ Future<void> _printSalesReport() async {
           pw.TextSpan(
             text: "₱",
             style: pw.TextStyle(
-                font: notoFont,
-                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+              font: bold ? dejavuBoldFont : dejavuFont,
+            ),
           ),
           pw.TextSpan(
             text: formattedAmount,
             style: pw.TextStyle(
-                font: robotoFont,
-                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+              font: bold ? robotoBoldFont : robotoFont,
+            ),
           ),
         ],
       ),
@@ -281,18 +283,23 @@ Future<void> _printSalesReport() async {
             ),
           ),
           pw.SizedBox(height: 10),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text(
-                "Date Range: "
-                "${startDate != null ? dateFormat.format(startDate!) : 'All'} - "
-                "${endDate != null ? dateFormat.format(endDate!) : 'All'}",
-                style: pw.TextStyle(font: robotoFont, fontSize: 12),
-              ),
-              pesoText(grandTotal, bold: true),
-            ],
-          ),
+pw.Row(
+  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+  children: [
+    pw.Text(
+      // Show only if at least one date is set
+      (startDate != null || endDate != null)
+          ? "Date Range: "
+            "${startDate != null ? dateFormat.format(startDate!) : ''}"
+            "${(startDate != null && endDate != null) ? ' - ' : ''}"
+            "${endDate != null ? dateFormat.format(endDate!) : ''}"
+          : "", // prints nothing if no dates
+      style: pw.TextStyle(font: robotoFont, fontSize: 12),
+    ),
+    pesoText(grandTotal, bold: true),
+  ],
+),
+
           pw.SizedBox(height: 10),
           ...filteredOrders.map((order) {
             final items = order['items'] as List<dynamic>? ?? [];
@@ -361,7 +368,7 @@ Future<void> _printSalesReport() async {
                         item['category'] ?? '',
                         item['quantity']?.toString() ?? '1',
                         item['size'] ?? '',
-                        "₱${numberFormat.format(itemPrice)}", // price with peso symbol
+                        "₱${numberFormat.format(itemPrice)}", // peso symbol with commas
                         addons,
                       ];
                     }).toList(),

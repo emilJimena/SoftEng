@@ -45,12 +45,18 @@ flutter:
           weight: 700
     - family: Roboto
       fonts:
-      - asset: assets/fonts/Roboto-Regular.ttf
-      - asset: assets/fonts/Roboto-Bold.ttf
-        weight: 700
-      - asset: assets/fonts/Roboto-Italic.ttf
-        style: italic  
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Roboto-Italic.ttf
+          style: italic
+    - family: DejaVuSans
+      fonts:
+        - asset: assets/fonts/DejaVuSans.ttf
+        - asset: assets/fonts/DejaVuSans-Bold.ttf
+          weight: 700
 
   assets:
     - assets/images/
     - assets/icons/
+    - assets/fonts/
