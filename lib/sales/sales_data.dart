@@ -81,8 +81,8 @@ class SalesData {
           (sum, item) =>
               sum + ((item['price'] ?? 0.0) * (item['quantity'] ?? 1)),
         ),
-        "amountPaid": amountPaid ?? 0, // make sure it’s never null
-        "change": change ?? 0, // make sure it’s never null
+        "amountPaid": amountPaid, // make sure it’s never null
+        "change": change, // make sure it’s never null
       };
 
       // Optional: debug print to see what you are sending

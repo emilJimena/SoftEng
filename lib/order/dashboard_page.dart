@@ -50,7 +50,7 @@ class _DashboardPageState extends State<DashboardPage> {
     currentUsername = widget.username;
     currentRole = widget.role.trim().toLowerCase();
     userId = widget.userId;
-
+    _isSidebarOpen = widget.isSidebarOpen; // <-- initialize from the widget
     _initApiBase();
   }
 

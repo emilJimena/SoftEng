@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../materials/material_details_page.dart';
+import 'material_details_page.dart';
 import '../widgets/sidebar.dart';
 import '../tasks/task_page.dart';
 import '../materials/manager_page.dart';
@@ -303,40 +303,50 @@ class InventoryUI extends StatelessWidget {
 
                             // Low Stock Notification Icon with custom image
                             IconButton(
-                              icon: Stack(
-                                children: [
-                                  Image.asset(
-                                    'assets/images/notification.png', // Your custom notification image
-                                    width: 30,
-                                    height: 30,
-                                  ),
-                                  if (lowStockCount > 0)
-                                    Positioned(
-                                      right: 0,
-                                      top: 0,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.red,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 16,
-                                          minHeight: 16,
-                                        ),
-                                        child: Text(
-                                          '$lowStockCount',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
+                              icon: Tooltip(
+                                message: "Show Low Stock Ingredients",
+                                verticalOffset: 30,
+                                decoration: BoxDecoration(
+                                  color: Colors.black87,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                textStyle: const TextStyle(color: Colors.white),
+                                child: Stack(
+                                  children: [
+                                    Image.asset(
+                                      'assets/images/notification.png', // Your custom notification image
+                                      width: 30,
+                                      height: 30,
+                                    ),
+                                    if (lowStockCount > 0)
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(2),
+                                          decoration: const BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
                                           ),
-                                          textAlign: TextAlign.center,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 16,
+                                            minHeight: 16,
+                                          ),
+                                          child: Text(
+                                            '$lowStockCount',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
+
                               onPressed: () {
                                 // Show low stock details dialog
                                 showDialog(

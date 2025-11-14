@@ -69,7 +69,6 @@ class _PizzaDashboardPageState extends State<PizzaDashboardPage> {
   String currentModule = "dashboard";
   String selectedCategory = "All";
   late List<dynamic> filteredMenuItems;
-
   bool showCart = false;
   List<Map<String, dynamic>> cartItems = [];
 
@@ -373,10 +372,39 @@ class _PizzaDashboardPageState extends State<PizzaDashboardPage> {
             menuItems: filteredMenuItems,
             onAddToCart: (item) {
               showOrderPopup(context, item, (cartItem) {
+                // --- Check if this combination already exists in cart ---
+                bool alreadyInCart = cartItems.any((existingItem) {
+                  if (existingItem['menu_id'] != cartItem['menu_id'])
+                    return false;
+
+                  final existingAddonIds = (existingItem['addons'] as List)
+                      .map((a) => a['id'])
+                      .toSet();
+                  final newAddonIds = (cartItem['addons'] as List)
+                      .map((a) => a['id'])
+                      .toSet();
+
+                  return existingAddonIds.length == newAddonIds.length &&
+                      existingAddonIds.containsAll(newAddonIds);
+                });
+
+                if (alreadyInCart) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'This item with the same addons is already in the cart.',
+                      ),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
+
+                // --- Add to cart ---
                 setState(() {
                   cartItems.add(cartItem);
                 });
-                // SHOW SNACKBAR ONLY, do NOT pop navigator here
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -386,7 +414,7 @@ class _PizzaDashboardPageState extends State<PizzaDashboardPage> {
                     backgroundColor: Colors.green,
                   ),
                 );
-              });
+              }, cartItems); // <-- pass cartItems into showOrderPopup
             },
             apiBase: widget.apiBase,
           ),
@@ -567,38 +595,53 @@ class _CategoryChipsState extends State<_CategoryChips> {
         // Orders Popup Button
         Container(
           margin: const EdgeInsets.only(right: 8),
-          child: ElevatedButton.icon(
+          child: ElevatedButton(
             onPressed: () {
               // Show the Orders Popup
               OrdersPopup.show(context);
             },
-            icon: const Icon(Icons.list_alt, size: 18),
-            label: Text(
-              "Orders",
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.green.withOpacity(
+                0.7,
+              ), // semi-transparent
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Image icon
+                Image.asset(
+                  'assets/icons/orders.png', // replace with your icon image
+                  width: 18, // size similar to the original Icon
+                  height: 18,
+                  color: Colors.white, // optional: tint the image if needed
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  "Order History",
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+
         // Cart Button
         Container(
           decoration: const BoxDecoration(
             color: Colors.orange,
             shape: BoxShape.circle,
           ),
-          child: IconButton(
-            icon: const Icon(Icons.shopping_cart, color: Colors.white),
-            onPressed: widget.onCartPressed,
+          child: // Cart Button as Image
+          HoverableCartButton(
+            onCartPressed: widget.onCartPressed,
           ),
         ),
       ],
@@ -765,6 +808,54 @@ class MenuGrid extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class HoverableCartButton extends StatefulWidget {
+  final VoidCallback onCartPressed;
+
+  const HoverableCartButton({required this.onCartPressed, Key? key})
+    : super(key: key);
+
+  @override
+  State<HoverableCartButton> createState() => _HoverableCartButtonState();
+}
+
+class _HoverableCartButtonState extends State<HoverableCartButton> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: widget.onCartPressed,
+        child: Tooltip(
+          message: "View Cart",
+          verticalOffset: 30,
+          decoration: BoxDecoration(
+            color: Colors.black87,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          textStyle: const TextStyle(color: Colors.white),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 45,
+            height: 45,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isHovering
+                  ? Colors.orange.withOpacity(0.3) // highlight on hover
+                  : Colors.transparent, // fully transparent
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Image.asset('assets/icons/cart.png', fit: BoxFit.contain),
+          ),
+        ),
+      ),
     );
   }
 }

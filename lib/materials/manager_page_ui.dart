@@ -222,13 +222,8 @@ class ManagerPageUI extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      ElevatedButton.icon(
+                      ElevatedButton(
                         onPressed: onAddEntry,
-                        icon: const Icon(Icons.add, color: Colors.white),
-                        label: const Text(
-                          "Add Entry",
-                          style: TextStyle(color: Colors.white),
-                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange.shade700,
                           padding: const EdgeInsets.symmetric(
@@ -238,6 +233,22 @@ class ManagerPageUI extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              'assets/icons/add.png', // replace with your icon image
+                              width: 18,
+                              height: 18,
+                              color: Colors.white, // optional: tint the image
+                            ),
+                            const SizedBox(width: 6),
+                            const Text(
+                              "Add Entry",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
                         ),
                       ),
                     ],

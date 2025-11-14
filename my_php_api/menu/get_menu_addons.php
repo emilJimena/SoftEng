@@ -24,9 +24,12 @@ try {
             a.category, 
             a.subcategory, 
             a.status,
-            m.quantity
+            m.quantity,
+            rm.name AS material_name,
+            rm.unit
         FROM menu_addons m
         JOIN addons_list a ON m.addon_id = a.id
+        JOIN raw_materials rm ON m.material_id = rm.id
         WHERE m.menu_id = ?
     ");
 
@@ -36,16 +39,19 @@ try {
 
     $addons = [];
     while ($row = $result->fetch_assoc()) {
-    $addons[] = [
-        'id' => intval($row['id']),
-        'name' => $row['name'],
-        'price' => floatval($row['price']),
-        'category' => $row['category'] ?? 'Others',
-        'subcategory' => $row['subcategory'] ?? null,
-        'status' => $row['status'] ?? 'visible',
-        'quantity' => floatval($row['quantity']), // ← add this
-    ];
+        $addons[] = [
+            'id' => intval($row['id']),
+            'name' => $row['name'],
+            'price' => floatval($row['price']),
+            'category' => $row['category'] ?? 'Others',
+            'subcategory' => $row['subcategory'] ?? null,
+            'status' => $row['status'] ?? 'visible',
+            'quantity' => floatval($row['quantity']),
+            'material_name' => $row['material_name'] ?? '',
+            'unit' => $row['unit'] ?? '',
+        ];
     }
+
 
     echo json_encode($addons ?? []);
     exit;

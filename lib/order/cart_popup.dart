@@ -100,6 +100,32 @@ class _CartPopupPageState extends State<CartPopupPage> {
     super.dispose();
   }
 
+  void _confirmAmountPaid() {
+    String clean = _paymentController.text.replaceAll(',', '');
+    double entered = double.tryParse(clean) ?? 0.0;
+
+    if (entered >= _totalAfterDiscount) {
+      setState(() {
+        _amountPaid = entered;
+      });
+      FocusScope.of(context).unfocus(); // hide keyboard
+    } else {
+      // Show error if less than total
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Amount must be at least ₱${_totalAfterDiscount.toStringAsFixed(2)}",
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      _paymentController.clear();
+      setState(() {
+        _amountPaid = 0.0;
+      });
+    }
+  }
+
   Future<void> _checkLoggedInUser() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? savedUsername = prefs.getString("username");
@@ -174,8 +200,6 @@ class _CartPopupPageState extends State<CartPopupPage> {
         child: CircularProgressIndicator(color: Colors.orangeAccent),
       ),
     );
-
-    bool success = true;
 
     try {
       final apiBase = await ApiConfig.getBaseUrl();
@@ -349,13 +373,13 @@ class _CartPopupPageState extends State<CartPopupPage> {
 
       widget.onClose();
     } catch (e) {
-      success = false;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Checkout failed: $e')));
     } finally {
       Navigator.pop(context); // hide loading
     }
+    return;
   }
 
   void _incrementQuantity(int index) {
@@ -631,29 +655,16 @@ class _CartPopupPageState extends State<CartPopupPage> {
                                   children: [
                                     Row(
                                       children: [
-                                        GestureDetector(
+                                        // Decrement button
+                                        _HoverButton(
                                           onTap: () =>
                                               _decrementQuantity(index),
-                                          child: Container(
-                                            width: 25, // increase size
-                                            height: 25,
-                                            decoration: BoxDecoration(
-                                              color: Colors.orangeAccent,
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                            ),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.asset(
-                                                'assets/icons/minus.png',
-                                                fit: BoxFit.cover,
-                                                color: Colors
-                                                    .white, // change icon color here
-                                                colorBlendMode: BlendMode.srcIn,
-                                              ),
-                                            ),
-                                          ),
+                                          assetIconPath:
+                                              'assets/icons/minus.png',
+                                          backgroundColor: Colors.orangeAccent
+                                              .withOpacity(
+                                                0.7,
+                                              ), // semi-transparent
                                         ),
                                         Padding(
                                           padding: const EdgeInsets.symmetric(
@@ -668,50 +679,35 @@ class _CartPopupPageState extends State<CartPopupPage> {
                                             ),
                                           ),
                                         ),
-                                        GestureDetector(
+                                        // Increment button
+                                        _HoverButton(
                                           onTap: () =>
                                               _incrementQuantity(index),
-                                          child: Container(
-                                            width: 25, // increase size
-                                            height: 25,
-                                            decoration: BoxDecoration(
-                                              color: Colors.orangeAccent,
-                                              borderRadius:
-                                                  BorderRadius.circular(16),
-                                            ),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.asset(
-                                                'assets/icons/plus.png',
-                                                fit: BoxFit.cover,
-                                                color: Colors
-                                                    .white, // change icon color here
-                                                colorBlendMode: BlendMode.srcIn,
-                                              ),
-                                            ),
-                                          ),
+                                          assetIconPath:
+                                              'assets/icons/plus.png',
+                                          backgroundColor: Colors.orangeAccent
+                                              .withOpacity(
+                                                0.7,
+                                              ), // semi-transparent
                                         ),
                                       ],
                                     ),
 
                                     // Delete button
-                                    GestureDetector(
+                                    _HoverButton(
                                       onTap: () {
                                         setState(() {
                                           items.removeAt(index);
                                         });
                                         widget.onCartUpdated(items);
                                       },
-                                      child: CircleAvatar(
-                                        backgroundColor: Colors.redAccent,
-                                        radius: 16,
-                                        child: const Icon(
-                                          Icons.delete,
-                                          color: Colors.white,
-                                          size: 18,
-                                        ),
+                                      child: const Icon(
+                                        Icons.delete,
+                                        color: Colors.white,
+                                        size: 18,
                                       ),
+                                      backgroundColor: Colors.redAccent
+                                          .withOpacity(0.7), // semi-transparent
                                     ),
                                   ],
                                 ),
@@ -933,51 +929,49 @@ class _CartPopupPageState extends State<CartPopupPage> {
                   const SizedBox(height: 12),
 
                   _amountPaid == 0
-                      ? // 💵 Payment Input
-                        TextField(
-                          focusNode: _paymentFocusNode,
-                          controller: _paymentController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [ThousandsFormatter()],
-                          decoration: InputDecoration(
-                            labelText: "Amount Paid",
-                            labelStyle: const TextStyle(
-                              color: Colors.orangeAccent,
-                            ),
-                            filled: true,
-                            fillColor: Colors.grey[200],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            prefixText: "₱",
-                          ),
-                          onSubmitted: (value) {
-                            String clean = value.replaceAll(',', '');
-                            double entered = double.tryParse(clean) ?? 0.0;
-
-                            if (entered >= _totalAfterDiscount) {
-                              setState(() {
-                                _amountPaid = entered;
-                              });
-                            } else {
-                              // Show error message if less than total
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    "Amount must be at least ₱${_totalAfterDiscount.toStringAsFixed(2)}",
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                focusNode: _paymentFocusNode,
+                                controller: _paymentController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [ThousandsFormatter()],
+                                decoration: InputDecoration(
+                                  labelText: "Amount Paid",
+                                  labelStyle: const TextStyle(
+                                    color: Colors.orangeAccent,
                                   ),
-                                  backgroundColor: Colors.redAccent,
+                                  filled: true,
+                                  fillColor: Colors.grey[200],
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  prefixText: "₱",
                                 ),
-                              );
-
-                              // Clear the invalid input
-                              _paymentController.clear();
-                              setState(() {
-                                _amountPaid = 0.0;
-                              });
-                            }
-                          },
+                                onSubmitted: (_) {
+                                  _confirmAmountPaid();
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: _confirmAmountPaid,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orangeAccent,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text("Confirm"),
+                            ),
+                          ],
                         )
                       : GestureDetector(
                           onTap: () {
@@ -1065,6 +1059,68 @@ class _CartPopupPageState extends State<CartPopupPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final Color backgroundColor;
+  final double size;
+  final Widget? child;
+  final String? assetIconPath; // optional asset path
+
+  const _HoverButton({
+    Key? key,
+    required this.onTap,
+    this.backgroundColor = Colors.orangeAccent,
+    this.size = 25,
+    this.child,
+    this.assetIconPath,
+  }) : super(key: key);
+
+  @override
+  State<_HoverButton> createState() => _HoverButtonState();
+}
+
+class _HoverButtonState extends State<_HoverButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget content =
+        widget.child ??
+        (widget.assetIconPath != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(widget.size / 2),
+                child: Image.asset(
+                  widget.assetIconPath!,
+                  fit: BoxFit.cover,
+                  color: Colors.white,
+                  colorBlendMode: BlendMode.srcIn,
+                ),
+              )
+            : const SizedBox.shrink());
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? widget.backgroundColor.withOpacity(0.7)
+                : widget.backgroundColor,
+            borderRadius: BorderRadius.circular(widget.size / 2),
+          ),
+          child: Center(child: content),
         ),
       ),
     );

@@ -14,6 +14,7 @@ class OrdersPopup {
     await SalesData().init();
     await SalesData().loadOrders();
 
+    // Map and clean up all orders
     List<Map<String, dynamic>> allOrders = SalesData().orders.map((order) {
       final items =
           (order['items'] as List<dynamic>?)
@@ -64,17 +65,20 @@ class OrdersPopup {
 
     DateTime selectedDate = DateTime.now();
 
-    void showOrdersDialog() {
-      String formattedDate = DateFormat('MMM dd, yyyy').format(selectedDate);
-      final filteredOrders = allOrders
-          .where((order) => order['orderDate'] == formattedDate)
-          .toList();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // 🟢 Filter orders dynamically when date changes
+            String formattedDate = DateFormat(
+              'MMM dd, yyyy',
+            ).format(selectedDate);
+            final filteredOrders = allOrders
+                .where((order) => order['orderDate'] == formattedDate)
+                .toList();
 
-      showDialog(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setState) => Dialog(
+            return Dialog(
               insetPadding: const EdgeInsets.all(16),
               backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
@@ -90,7 +94,7 @@ class OrdersPopup {
                     ? const Center(child: CircularProgressIndicator())
                     : Column(
                         children: [
-                          // 🔹 Header with date switch
+                          // 🔹 Header with date navigation
                           Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
@@ -117,9 +121,7 @@ class OrdersPopup {
                                       },
                                     ),
                                     Text(
-                                      DateFormat(
-                                        'MMM dd, yyyy',
-                                      ).format(selectedDate),
+                                      formattedDate,
                                       style: GoogleFonts.poppins(
                                         fontSize: 14,
                                         color: Colors.grey[700],
@@ -244,13 +246,10 @@ class OrdersPopup {
                         ],
                       ),
               ),
-            ),
-          );
-        },
-      );
-    }
-
-    // 🔹 Initial popup show
-    showOrdersDialog();
+            );
+          },
+        );
+      },
+    );
   }
 }

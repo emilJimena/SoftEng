@@ -12,6 +12,10 @@ import '../inventory/inventory_page.dart';
 import '../home/dash.dart';
 import '../order/dashboard_page.dart';
 import '../config/api_config.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:flutter/services.dart';
 
 class Expense {
   int? id;
@@ -86,7 +90,8 @@ class _ExpensesContentState extends State<ExpensesContent> {
   late bool _isSidebarOpen;
   List<Expense> _allExpenses = [];
   bool isLoading = true;
-  List<String> _categories = [];
+  List<Map<String, dynamic>> _categories = [];
+  final NumberFormat currencyFormatter = NumberFormat('#,##0.00');
 
   // Date filters
   DateTime? startDate;
@@ -107,12 +112,151 @@ class _ExpensesContentState extends State<ExpensesContent> {
     widget.toggleSidebar();
   }
 
+  Future<void> _generatePdfReport() async {
+    final pdf = pw.Document();
+
+    // Load the font from assets
+    final fontData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+    final ttf = pw.Font.ttf(fontData);
+
+    final filtered = _filteredExpenses;
+
+    final now = DateTime.now();
+    final generatedAt = DateFormat('MM/dd/yyyy HH:mm:ss').format(now);
+
+    // Group expenses by date
+    final Map<String, List<Expense>> expensesByDate = {};
+    for (var e in filtered) {
+      final date = DateFormat('MM/dd/yyyy').format(DateTime.parse(e.date));
+      if (!expensesByDate.containsKey(date)) {
+        expensesByDate[date] = [];
+      }
+      expensesByDate[date]!.add(e);
+    }
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) => [
+          // PDF generation date and time at top-left
+          pw.Align(
+            alignment: pw.Alignment.topLeft,
+            child: pw.Text(
+              'Generated: $generatedAt',
+              style: pw.TextStyle(
+                font: ttf,
+                fontSize: 9,
+                color: PdfColors.grey800,
+              ),
+            ),
+          ),
+          pw.SizedBox(height: 4),
+          // Title
+          pw.Text(
+            'Expenses Report',
+            style: pw.TextStyle(
+              font: ttf,
+              fontSize: 18,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 8),
+          if (startDate != null || endDate != null)
+            pw.Text(
+              'Date Range: ${startDate != null ? DateFormat('MM/dd/yyyy').format(startDate!) : 'All'} - ${endDate != null ? DateFormat('MM/dd/yyyy').format(endDate!) : 'All'}',
+              style: pw.TextStyle(font: ttf, fontSize: 10),
+            ),
+          pw.SizedBox(height: 8),
+
+          // Generate a table for each date
+          ...expensesByDate.entries.map((entry) {
+            final date = entry.key;
+            final expenses = entry.value;
+
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Date header
+                pw.Text(
+                  date,
+                  style: pw.TextStyle(
+                    font: ttf,
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromHex('#4F4F4F'), // dark grey
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                // Table without the Date column
+                pw.Table.fromTextArray(
+                  headers: [
+                    'Category',
+                    'Description',
+                    'Vendor',
+                    'Payment Method',
+                    'Qty',
+                    'Unit Price',
+                    'Total',
+                  ],
+                  data: expenses
+                      .map(
+                        (e) => [
+                          e.category,
+                          e.description,
+                          e.vendor,
+                          e.paymentMethod,
+                          currencyFormatter.format(e.quantity),
+                          currencyFormatter.format(e.unitPrice),
+                          currencyFormatter.format(e.totalCost),
+                        ],
+                      )
+                      .toList(),
+                  headerStyle: pw.TextStyle(
+                    font: ttf,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.black,
+                    fontSize: 9,
+                  ),
+                  cellStyle: pw.TextStyle(font: ttf, fontSize: 8),
+                  headerDecoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#D3D3D3'),
+                  ),
+                  cellAlignment: pw.Alignment.centerLeft,
+                  border: pw.TableBorder.all(
+                    color: PdfColor.fromHex('#4F4F4F'),
+                    width: 0.5,
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+              ],
+            );
+          }).toList(),
+
+          // Total Expenses
+          pw.Text(
+            'Total Expenses: ₱${currencyFormatter.format(_calculateTotal(filtered))}',
+            style: pw.TextStyle(
+              font: ttf,
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(onLayout: (format) async => pdf.save());
+  }
+
   Map<String, List<Expense>> get _expensesByDate {
     final Map<String, List<Expense>> grouped = {};
     for (var expense in _filteredExpenses) {
-      final formattedDate = DateFormat(
-        'MMM dd, yyyy',
-      ).format(DateTime.parse(expense.date));
+      final expenseDate = DateTime.tryParse(expense.date);
+      if (expenseDate == null) continue;
+
+      // Format for display only
+      final formattedDate = DateFormat('MM/dd/yyyy').format(expenseDate);
+
       if (!grouped.containsKey(formattedDate)) {
         grouped[formattedDate] = [];
       }
@@ -144,7 +288,8 @@ class _ExpensesContentState extends State<ExpensesContent> {
     final _unitPriceController = TextEditingController();
     String? _paymentMethod;
     String? _selectedCategory;
-    String? _selectedUser; // For Labor category
+    int? _selectedCategoryId;
+    String? _selectedUser;
     DateTime _selectedDate = DateTime.now();
     List<String> _users = [];
 
@@ -158,11 +303,7 @@ class _ExpensesContentState extends State<ExpensesContent> {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
-            setState(() {
-              _users = List<String>.from(
-                data['users'].map((u) => u['username']),
-              );
-            });
+            _users = List<String>.from(data['users'].map((u) => u['username']));
           }
         }
       } catch (e) {
@@ -183,25 +324,34 @@ class _ExpensesContentState extends State<ExpensesContent> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                DropdownButtonFormField<int>(
+                  value: _selectedCategoryId,
                   items: _categories
                       .map(
-                        (cat) => DropdownMenuItem(value: cat, child: Text(cat)),
+                        (cat) => DropdownMenuItem<int>(
+                          value: int.parse(
+                            cat['id'].toString(),
+                          ), // convert to int
+                          child: Text(cat['name'].toString()),
+                        ),
                       )
                       .toList(),
                   onChanged: (value) {
                     setState(() {
-                      _selectedCategory = value;
+                      _selectedCategoryId = value;
+                      _selectedCategory = _categories
+                          .firstWhere(
+                            (c) => int.parse(c['id'].toString()) == value,
+                          )['name']
+                          .toString();
                       _selectedUser = null;
                       _descriptionController.clear();
                     });
                   },
                   decoration: const InputDecoration(labelText: "Category"),
                 ),
-                const SizedBox(height: 10),
 
-                // Dynamic Description: dropdown for Labor, text field otherwise
+                const SizedBox(height: 10),
                 if (_selectedCategory == "Labor") ...[
                   DropdownButtonFormField<String>(
                     value: _selectedUser,
@@ -224,7 +374,6 @@ class _ExpensesContentState extends State<ExpensesContent> {
                     decoration: const InputDecoration(labelText: "Description"),
                   ),
                 ],
-
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -280,15 +429,9 @@ class _ExpensesContentState extends State<ExpensesContent> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final category = _selectedCategory ?? "";
-                final description = _descriptionController.text.trim();
-                final unitPrice =
-                    double.tryParse(_unitPriceController.text.trim()) ?? 0.0;
-                final paymentMethodSelected = _paymentMethod ?? "Cash";
-
-                if (category.isEmpty ||
-                    description.isEmpty ||
-                    unitPrice <= 0 ||
+                if (_selectedCategoryId == null ||
+                    _descriptionController.text.trim().isEmpty ||
+                    double.tryParse(_unitPriceController.text.trim()) == null ||
                     (_selectedCategory == "Labor" && _selectedUser == null)) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -300,25 +443,23 @@ class _ExpensesContentState extends State<ExpensesContent> {
 
                 final newExpense = Expense(
                   date: DateFormat('yyyy-MM-dd').format(_selectedDate),
-                  category: category,
-                  description: description,
+                  category: _selectedCategory ?? "",
+                  description: _descriptionController.text.trim(),
                   vendor: "",
                   quantity: 1,
-                  unitPrice: unitPrice,
-                  totalCost: unitPrice,
-                  paymentMethod: paymentMethodSelected,
+                  unitPrice: double.parse(_unitPriceController.text.trim()),
+                  totalCost: double.parse(_unitPriceController.text.trim()),
+                  paymentMethod: _paymentMethod ?? "Cash",
                   notes: "",
                 );
 
                 try {
                   final baseUrl = await ApiConfig.getBaseUrl();
-                  final categoryId = _categories.indexOf(category) + 1;
-
                   final response = await http.post(
                     Uri.parse('$baseUrl/expense/add_expense.php'),
                     headers: {'Content-Type': 'application/json'},
                     body: jsonEncode({
-                      "category_id": categoryId,
+                      "category_id": _selectedCategoryId,
                       "date": newExpense.date,
                       "description": newExpense.description,
                       "vendor": newExpense.vendor,
@@ -332,9 +473,7 @@ class _ExpensesContentState extends State<ExpensesContent> {
 
                   final data = jsonDecode(response.body);
                   if (data['success'] == true) {
-                    setState(() {
-                      _allExpenses.insert(0, newExpense);
-                    });
+                    setState(() => _allExpenses.insert(0, newExpense));
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -371,7 +510,6 @@ class _ExpensesContentState extends State<ExpensesContent> {
       final response = await http.get(
         Uri.parse('$baseUrl/expense/get_expenses.php'),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body)['data'] as List;
         _allExpenses = data.map((e) => Expense.fromJson(e)).toList();
@@ -396,12 +534,11 @@ class _ExpensesContentState extends State<ExpensesContent> {
       final response = await http.get(
         Uri.parse('$baseUrl/expense/get_categories.php'),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body)['data'] as List;
-        setState(() {
-          _categories = data.map((e) => e['name'] as String).toList();
-        });
+        _categories = data
+            .map((e) => {'id': e['id'], 'name': e['name']})
+            .toList();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Failed to load categories.')),
@@ -414,12 +551,11 @@ class _ExpensesContentState extends State<ExpensesContent> {
     }
   }
 
-  double _calculateTotal(List<Expense> expenses) {
-    return expenses.fold(0.0, (sum, e) => sum + e.totalCost);
-  }
+  double _calculateTotal(List<Expense> expenses) =>
+      expenses.fold(0.0, (sum, e) => sum + e.totalCost);
 
   Future<void> _pickDate(BuildContext context, bool isStart) async {
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: isStart
           ? (startDate ?? DateTime.now())
@@ -438,15 +574,13 @@ class _ExpensesContentState extends State<ExpensesContent> {
     }
   }
 
-  List<Expense> get _filteredExpenses {
-    return _allExpenses.where((e) {
-      final expenseDate = DateTime.tryParse(e.date);
-      if (expenseDate == null) return false;
-      if (startDate != null && expenseDate.isBefore(startDate!)) return false;
-      if (endDate != null && expenseDate.isAfter(endDate!)) return false;
-      return true;
-    }).toList();
-  }
+  List<Expense> get _filteredExpenses => _allExpenses.where((e) {
+    final expenseDate = DateTime.tryParse(e.date);
+    if (expenseDate == null) return false;
+    if (startDate != null && expenseDate.isBefore(startDate!)) return false;
+    if (endDate != null && expenseDate.isAfter(endDate!)) return false;
+    return true;
+  }).toList();
 
   Widget _buildHeaderRow() {
     return Container(
@@ -555,8 +689,12 @@ class _ExpensesContentState extends State<ExpensesContent> {
           ),
           Expanded(
             flex: 2,
-            child: Text(e.date, style: GoogleFonts.poppins(fontSize: 16)),
+            child: Text(
+              DateFormat('MM/dd/yyyy').format(DateTime.parse(e.date)),
+              style: GoogleFonts.poppins(fontSize: 16),
+            ),
           ),
+
           Expanded(
             flex: 2,
             child: Text(
@@ -567,21 +705,21 @@ class _ExpensesContentState extends State<ExpensesContent> {
           Expanded(
             flex: 1,
             child: Text(
-              e.quantity.toStringAsFixed(2),
+              currencyFormatter.format(e.quantity),
               style: GoogleFonts.poppins(fontSize: 16),
             ),
           ),
           Expanded(
             flex: 1,
             child: Text(
-              "₱${e.unitPrice.toStringAsFixed(2)}",
+              "₱${currencyFormatter.format(e.unitPrice)}",
               style: GoogleFonts.poppins(fontSize: 16),
             ),
           ),
           Expanded(
             flex: 1,
             child: Text(
-              "₱${e.totalCost.toStringAsFixed(2)}",
+              "₱${currencyFormatter.format(e.totalCost)}",
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -601,10 +739,12 @@ class _ExpensesContentState extends State<ExpensesContent> {
     final totalExpenses = _calculateTotal(filtered);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddExpenseDialog,
-        child: const Icon(Icons.add),
+      floatingActionButton: _HoverableImageButton(
+        imagePath: 'assets/images/add.png',
+        onTap: _showAddExpenseDialog,
+        hoverText: "Add Expense",
       ),
+
       body: Row(
         children: [
           Material(
@@ -741,6 +881,15 @@ class _ExpensesContentState extends State<ExpensesContent> {
                         ),
                       ),
                       const Spacer(),
+                      IconButton(
+                        icon: Image.asset(
+                          'assets/images/print.png', // path to your image
+                          width: 24,
+                          height: 24,
+                        ),
+                        onPressed: _generatePdfReport,
+                        tooltip: 'Export PDF',
+                      ),
                       TextButton.icon(
                         onPressed: () => _pickDate(context, true),
                         icon: const Icon(
@@ -749,7 +898,7 @@ class _ExpensesContentState extends State<ExpensesContent> {
                         ),
                         label: Text(
                           startDate != null
-                              ? DateFormat('MMM dd, yyyy').format(startDate!)
+                              ? DateFormat('MM/dd/yyyy').format(startDate!)
                               : 'From',
                           style: GoogleFonts.poppins(color: Colors.orange),
                         ),
@@ -762,7 +911,7 @@ class _ExpensesContentState extends State<ExpensesContent> {
                         ),
                         label: Text(
                           endDate != null
-                              ? DateFormat('MMM dd, yyyy').format(endDate!)
+                              ? DateFormat('MM/dd/yyyy').format(endDate!)
                               : 'To',
                           style: GoogleFonts.poppins(color: Colors.orange),
                         ),
@@ -771,7 +920,7 @@ class _ExpensesContentState extends State<ExpensesContent> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "Total Expenses: ₱${totalExpenses.toStringAsFixed(2)}",
+                    "Total Expenses: ₱${currencyFormatter.format(totalExpenses)}",
                     style: GoogleFonts.poppins(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -797,7 +946,6 @@ class _ExpensesContentState extends State<ExpensesContent> {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Date header
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 8,
@@ -811,9 +959,7 @@ class _ExpensesContentState extends State<ExpensesContent> {
                                       ),
                                     ),
                                   ),
-                                  // Column headers
                                   _buildHeaderRow(),
-                                  // Expenses for that date
                                   ...expenses
                                       .map((e) => _buildExpenseRow(e))
                                       .toList(),
@@ -826,6 +972,88 @@ class _ExpensesContentState extends State<ExpensesContent> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HoverableImageButton extends StatefulWidget {
+  final String imagePath;
+  final VoidCallback onTap;
+  final String hoverText;
+
+  const _HoverableImageButton({
+    required this.imagePath,
+    required this.onTap,
+    required this.hoverText,
+  });
+
+  @override
+  State<_HoverableImageButton> createState() => _HoverableImageButtonState();
+}
+
+class _HoverableImageButtonState extends State<_HoverableImageButton> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      cursor: SystemMouseCursors.click,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: _isHovering ? 64 : 56,
+              height: _isHovering ? 64 : 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: AssetImage(widget.imagePath),
+                  fit: BoxFit.cover,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: _isHovering ? 6 : 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Hover text
+          if (_isHovering)
+            Positioned(
+              top: -30, // adjust above the button
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange[700],
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  widget.hoverText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -265,35 +265,90 @@ class _MenuManagementPageUIState extends State<MenuManagementPageUI> {
                   .map((e) => Map<String, dynamic>.from(e as Map))
                   .toList();
 
-        rows.addAll(
-          ingredients.map(
-            (ingredient) => DataRow(
-              color: MaterialStateProperty.all(Colors.orange[50]),
-              cells: [
-                const DataCell(SizedBox()), // empty image
-                DataCell(Text(ingredient['name'] ?? "")),
-                DataCell(Text(ingredient['quantity']?.toString() ?? "")),
-                DataCell(Text(ingredient['unit']?.toString() ?? "")),
-                DataCell(
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.playlist_add),
-                        onPressed: () async {
-                          await widget.onAddIngredient(id); // opens add dialog
-                          await widget.onViewIngredients(
-                            id,
-                          ); // refresh dropdown
-                        },
-                      ),
-                    ],
-                  ),
+        // Add header row first
+        // Header row
+        rows.add(
+          DataRow(
+            color: MaterialStateProperty.all(
+              Colors.orange.withOpacity(0.5),
+            ), // header background
+            cells: const [
+              DataCell(SizedBox()), // header for image column
+              DataCell(
+                Text(
+                  "Ingredient Name",
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const DataCell(SizedBox()), // empty cell for actions
-              ],
-            ),
+              ),
+              DataCell(
+                Text("Quantity", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              DataCell(
+                Text("Unit", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              DataCell(SizedBox()), // header for add column
+              DataCell(SizedBox()), // header for actions column
+            ],
           ),
         );
+
+        // Check if ingredients list is empty
+        if (ingredients.isEmpty) {
+          rows.add(
+            DataRow(
+              color: MaterialStateProperty.all(Colors.orange[50]),
+              cells: const [
+                DataCell(SizedBox()),
+                DataCell(
+                  Text(
+                    "Addon List is Empty",
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+                DataCell(SizedBox()),
+                DataCell(SizedBox()),
+                DataCell(SizedBox()),
+                DataCell(SizedBox()),
+              ],
+            ),
+          );
+        } else {
+          // Add ingredient rows
+          rows.addAll(
+            ingredients.map(
+              (ingredient) => DataRow(
+                color: MaterialStateProperty.all(Colors.orange[50]),
+                cells: [
+                  const DataCell(SizedBox()), // empty image
+                  DataCell(Text(ingredient['name'] ?? "")),
+                  DataCell(Text(ingredient['quantity']?.toString() ?? "")),
+                  DataCell(Text(ingredient['unit']?.toString() ?? "")),
+                  DataCell(
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.playlist_add),
+                          onPressed: () async {
+                            await widget.onAddIngredient(
+                              id,
+                            ); // opens add dialog
+                            await widget.onViewIngredients(
+                              id,
+                            ); // refresh dropdown
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const DataCell(SizedBox()), // empty cell for actions
+                ],
+              ),
+            ),
+          );
+        }
       }
     }
 
@@ -514,38 +569,19 @@ class _MenuManagementPageUIState extends State<MenuManagementPageUI> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            ElevatedButton.icon(
+                            ElevatedButton(
                               onPressed: () {
-                                if (widget.role.toLowerCase() == "manager") {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => AddonPage(
-                                        userId: widget.userId,
-                                        username: widget.username,
-                                        role: widget.role,
-                                      ),
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddonPage(
+                                      userId: widget.userId,
+                                      username: widget.username,
+                                      role: widget.role,
                                     ),
-                                  );
-                                } else {
-                                  _showAccessDeniedDialog(
-                                    context,
-                                    "Manage Addons",
-                                  );
-                                }
+                                  ),
+                                );
                               },
-                              icon: const Icon(
-                                Icons.settings,
-                                color: Colors.white,
-                              ),
-                              label: Text(
-                                "Manage Addons",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.orange,
                                 padding: const EdgeInsets.symmetric(
@@ -556,74 +592,111 @@ class _MenuManagementPageUIState extends State<MenuManagementPageUI> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Image.asset(
+                                    'assets/icons/settings.png', // your custom image
+                                    width: 18,
+                                    height: 18,
+                                    color: Colors.white, // optional tint
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "Manage Addons",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
+
                             const SizedBox(width: 12),
                             // NEW: Add Menu Addon Button
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                if (widget.role.toLowerCase() == "manager") {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => AddMenuAddonPage(),
+                            Row(
+                              children: [
+                                // Add Menu Addon Button
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => AddMenuAddonPage(),
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 12,
                                     ),
-                                  );
-                                } else {
-                                  _showAccessDeniedDialog(
-                                    context,
-                                    "Add Menu Addon",
-                                  );
-                                }
-                              },
-                              icon: const Icon(
-                                Icons.add_box,
-                                color: Colors.white,
-                              ),
-                              label: Text(
-                                "Add Menu Addon",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Image.asset(
+                                        'assets/icons/add_box.png', // your custom image
+                                        width: 18,
+                                        height: 18,
+                                        color: Colors.white, // optional tint
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        "Add Menu Addon",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
 
-                            // NEW: Manage Addons Button
+                                const SizedBox(width: 12),
 
-                            // Add Menu Button
-                            ElevatedButton.icon(
-                              onPressed: widget.onAddEntry,
-                              icon: const Icon(Icons.add, color: Colors.white),
-                              label: Text(
-                                "Add Menu",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w500,
+                                // Add Menu Button
+                                ElevatedButton(
+                                  onPressed: widget.onAddEntry,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 18,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Image.asset(
+                                        'assets/icons/add.png', // your custom image
+                                        width: 18,
+                                        height: 18,
+                                        color: Colors.white, // optional tint
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        "Add Menu",
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 18,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
+                              ],
                             ),
                           ],
                         ),

@@ -44,8 +44,8 @@ void showOrderPopup(
   BuildContext context,
   Map<String, dynamic> item,
   void Function(Map<String, dynamic>) onAddToCart,
+  List<Map<String, dynamic>> cartItems,
 ) async {
-  // Strictly parse menu_id as int
   final int menuId =
       int.tryParse(
         item['menu_id']?.toString() ?? item['id']?.toString() ?? '0',
@@ -58,7 +58,6 @@ void showOrderPopup(
     return;
   }
 
-  // Fetch addons
   List<Map<String, dynamic>> menuAddons = [];
   try {
     menuAddons = await fetchMenuAddons(menuId);
@@ -70,14 +69,12 @@ void showOrderPopup(
   }
 
   final double basePrice = parseDouble(item['price']);
-
   List<int> selectedAddonIds = [];
   Map<String, String> selectedOptions = {"Size": "Medium", "Crust": "Thin"};
 
   double computeTotal() {
     double total = basePrice;
 
-    // Radio options
     for (var cat in selectedOptions.keys) {
       final selectedName = selectedOptions[cat];
       if (selectedName != null && selectedName.isNotEmpty) {
@@ -89,7 +86,6 @@ void showOrderPopup(
       }
     }
 
-    // Checkbox addons
     for (var id in selectedAddonIds) {
       final match = menuAddons.firstWhere(
         (a) =>
@@ -108,8 +104,6 @@ void showOrderPopup(
     builder: (dialogContext) {
       return StatefulBuilder(
         builder: (context, setState) {
-          final totalPrice = computeTotal();
-
           final grouped = <String, List<Map<String, dynamic>>>{};
           for (var addon in menuAddons) {
             final category = addon['category'] ?? 'Others';
@@ -167,7 +161,7 @@ void showOrderPopup(
                                 value: addonName,
                                 groupValue: selectedOptions[category],
                                 onChanged: addon['status'] == 'hidden'
-                                    ? null // disable selection
+                                    ? null
                                     : (value) => setState(
                                         () => selectedOptions[category] =
                                             value ?? '',
@@ -180,7 +174,6 @@ void showOrderPopup(
                                         : Colors.white,
                                   ),
                                 ),
-
                                 activeColor: Colors.orangeAccent,
                                 dense: true,
                               );
@@ -189,7 +182,6 @@ void showOrderPopup(
                         );
                       }
 
-                      // Checkbox categories
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -210,7 +202,7 @@ void showOrderPopup(
                             return CheckboxListTile(
                               value: selectedAddonIds.contains(addonId),
                               onChanged: addon['status'] == 'hidden'
-                                  ? null // disable selection
+                                  ? null
                                   : (checked) {
                                       setState(() {
                                         if (checked == true)
@@ -235,120 +227,143 @@ void showOrderPopup(
                         ],
                       );
                     }).toList(),
-                    const Divider(color: Colors.white24, thickness: 1),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "Total:",
-                          style: GoogleFonts.poppins(
-                            color: Colors.orangeAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                        Text(
-                          "₱${totalPrice.toStringAsFixed(2)}",
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
             ),
+            actionsPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(
-                  "Cancel",
-                  style: GoogleFonts.poppins(color: Colors.white70),
+              // Total displayed above the buttons
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Total: ₱${computeTotal().toStringAsFixed(2)}",
+                      style: GoogleFonts.poppins(
+                        color: Colors.orangeAccent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orangeAccent,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () {
-                  // Build cart item with strict int menu_id
-                  final int menuId =
-                      int.tryParse(
-                        item['menu_id']?.toString() ??
-                            item['id']?.toString() ??
-                            '0',
-                      ) ??
-                      0;
 
-                  if (menuId <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Invalid menu ID, cannot add to cart.'),
+              // Buttons row with same padding
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        "Cancel",
+                        style: GoogleFonts.poppins(color: Colors.white70),
                       ),
-                    );
-                    return;
-                  }
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orangeAccent,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () {
+                        // Build addons list
+                        List<Map<String, dynamic>> addonsToCart =
+                            selectedAddonIds
+                                .map((addonId) {
+                                  final match = menuAddons.firstWhere(
+                                    (a) =>
+                                        (a['id'] is int
+                                            ? a['id']
+                                            : int.tryParse(
+                                                a['id'].toString(),
+                                              )) ==
+                                        addonId,
+                                    orElse: () => {},
+                                  );
+                                  if (match.isNotEmpty) {
+                                    return {
+                                      'id': addonId,
+                                      'name': match['name'],
+                                      'price': parseDouble(match['price']),
+                                    };
+                                  }
+                                  return null;
+                                })
+                                .where((e) => e != null)
+                                .cast<Map<String, dynamic>>()
+                                .toList();
 
-                  // Build addons list
-                  List<Map<String, dynamic>> addonsToCart = selectedAddonIds
-                      .map((addonId) {
-                        final match = menuAddons.firstWhere(
-                          (a) =>
-                              (a['id'] is int
-                                  ? a['id']
-                                  : int.tryParse(a['id'].toString())) ==
-                              addonId,
-                          orElse: () => {},
-                        );
-                        if (match.isNotEmpty) {
-                          return {
-                            'id': addonId,
-                            'name': match['name'],
-                            'price': parseDouble(match['price']),
-                          };
+                        for (var cat in selectedOptions.keys) {
+                          final value = selectedOptions[cat];
+                          if (value != null && value.isNotEmpty) {
+                            final match = menuAddons.firstWhere(
+                              (a) => a['name'] == value,
+                              orElse: () => {},
+                            );
+                            if (match.isNotEmpty) {
+                              addonsToCart.add({
+                                'id': match['id'] is int
+                                    ? match['id']
+                                    : int.tryParse(match['id'].toString()) ?? 0,
+                                'name': match['name'],
+                                'price': parseDouble(match['price']),
+                              });
+                            }
+                          }
                         }
-                        return null;
-                      })
-                      .where((e) => e != null)
-                      .cast<Map<String, dynamic>>()
-                      .toList();
 
-                  // Add radio options (Size, Crust) as "addons" too
-                  for (var cat in selectedOptions.keys) {
-                    final value = selectedOptions[cat];
-                    if (value != null && value.isNotEmpty) {
-                      final match = menuAddons.firstWhere(
-                        (a) => a['name'] == value,
-                        orElse: () => {},
-                      );
-                      if (match.isNotEmpty) {
-                        addonsToCart.add({
-                          'id': match['id'] is int
-                              ? match['id']
-                              : int.tryParse(match['id'].toString()) ?? 0,
-                          'name': match['name'],
-                          'price': parseDouble(match['price']),
-                        });
-                      }
-                    }
-                  }
+                        final cartItem = {
+                          ...item,
+                          'menu_id': menuId,
+                          'quantity': 1,
+                          'addons': addonsToCart,
+                        };
 
-                  final cartItem = {
-                    ...item,
-                    'menu_id': menuId,
-                    'quantity': 1,
-                    'addons': addonsToCart,
-                  };
+                        // Prevent duplicates
+                        bool alreadyInCart = false;
+                        for (var existingItem in cartItems) {
+                          if (existingItem['menu_id'] != cartItem['menu_id'])
+                            continue;
+                          final existingAddonIds =
+                              (existingItem['addons'] as List)
+                                  .map((a) => a['id'])
+                                  .toSet();
+                          final newAddonIds = (cartItem['addons'] as List)
+                              .map((a) => a['id'])
+                              .toSet();
+                          if (existingAddonIds.length == newAddonIds.length &&
+                              existingAddonIds.containsAll(newAddonIds)) {
+                            alreadyInCart = true;
+                            break;
+                          }
+                        }
 
-                  onAddToCart(cartItem);
-                  Navigator.pop(context);
-                },
-                child: Text("Add to Cart", style: GoogleFonts.poppins()),
+                        if (alreadyInCart) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'This item with the same addons is already in the cart.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        onAddToCart(cartItem);
+                        Navigator.pop(context);
+                      },
+                      child: Text("Add to Cart", style: GoogleFonts.poppins()),
+                    ),
+                  ],
+                ),
               ),
             ],
           );

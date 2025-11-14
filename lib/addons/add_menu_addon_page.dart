@@ -389,7 +389,6 @@ class _AddMenuAddonPageState extends State<AddMenuAddonPage> {
           DataRow(
             color: MaterialStateProperty.all(Colors.orange.shade200),
             cells: const [
-              DataCell(SizedBox()),
               DataCell(
                 Text(
                   "Addons",
@@ -401,7 +400,16 @@ class _AddMenuAddonPageState extends State<AddMenuAddonPage> {
               ),
               DataCell(
                 Text(
-                  "Quantity",
+                  "Raw Material",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              DataCell(
+                Text(
+                  "Quantity / Unit",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
@@ -417,7 +425,6 @@ class _AddMenuAddonPageState extends State<AddMenuAddonPage> {
                   ),
                 ),
               ),
-
               DataCell(
                 Text(
                   "Action",
@@ -476,15 +483,18 @@ class _AddMenuAddonPageState extends State<AddMenuAddonPage> {
           );
         } else {
           // show loaded addons
+          // show loaded addons
           rows.addAll(
             addons.map(
               (addon) => DataRow(
                 color: MaterialStateProperty.all(Colors.orange[50]),
                 cells: [
-                  const DataCell(SizedBox()),
-                  DataCell(Text(addon['name'] ?? '')),
-                  DataCell(Text(addon['quantity']?.toString() ?? '')),
-                  DataCell(Text(addon['category'] ?? '')),
+                  DataCell(Text(addon['name'] ?? '')), // Addon Name
+                  DataCell(Text(addon['material_name'] ?? '')), // Raw Material
+                  DataCell(
+                    Text("${addon['quantity'] ?? ''} ${addon['unit'] ?? ''}"),
+                  ), // Quantity + Unit
+                  DataCell(Text(addon['category'] ?? '')), // Category
                   DataCell(
                     MouseRegion(
                       cursor: SystemMouseCursors.click,
